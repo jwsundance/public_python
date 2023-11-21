@@ -60,7 +60,9 @@ def pub_ip() -> str:
 
 
 def nslookup_ip() -> str:
-    dns_ip = socket.gethostbyname(f"{a_record}")
+    load_dotenv()
+    a_record = os.getenv('A_RECORD')
+    dns_ip = socket.gethostbyname(a_record)
     #print (dns_ip)
     return dns_ip
 
