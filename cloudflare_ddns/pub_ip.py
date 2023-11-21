@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 def __init__():
-    __author__ = "jhagerou812"
+    __author__ = "jwsundance"
 
 def cloudflare_dns_api(pubaddress):
         load_dotenv()
@@ -60,7 +60,7 @@ def pub_ip() -> str:
 
 
 def nslookup_ip() -> str:
-    dns_ip = socket.gethostbyname('gp.rockthepower.com')
+    dns_ip = socket.gethostbyname(f"{a_record}")
     #print (dns_ip)
     return dns_ip
 
