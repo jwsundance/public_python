@@ -8,10 +8,39 @@ the hostname (if available) of the device with that IP.
 import time
 import socket
 import ipaddress
+import platform
+import subprocess
 import concurrent.futures
 
-# Downloaded Modules
-from pythonping import ping     # python -m pip install pythonping
+
+def ping(host: str, count: int = 4) -> bool:
+    """Pings a host a returns if the ping was successful.
+
+    Args:
+        host (str): The IP address of the host.
+        timeout (int, optional): Timeout of each ping, in seconds. Defaults to 1.
+        count (int, optional): How many pings to try. Recommanded to do more than 1. Defaults to 4.
+
+    Returns:
+        bool: True if successful, False if not.
+    """
+
+    # modify the `ping` command depending on the operating system
+    if platform.system().lower()=='windows':
+        count_param = '-n'
+    else:
+        count_param = '-c'
+
+    command = ['ping', count_param, str(count), host]
+    proc = subprocess.Popen(command, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    
+    while True:
+        time.sleep(1)
+        if proc.poll() is not None:
+            break
+        
+    result =  proc.poll() == 0
+    return result
 
 
 def ping_and_update(addresses: dict, host: str) -> None:
@@ -26,7 +55,7 @@ def ping_and_update(addresses: dict, host: str) -> None:
         None
     """
     # Test ping to host address
-    ping_result = ping(host, timeout=1, count=3)
+    ping_result = ping(host)
 
     # Try DNS lookup to host address
     try:
@@ -36,7 +65,7 @@ def ping_and_update(addresses: dict, host: str) -> None:
 
     # Update results
     addresses[host].update({
-        "PING_REPLY": ping_result.success(),
+        "PING_REPLY": ping_result,
         "DNS_NAME": hostname
         })
 
@@ -126,3 +155,4 @@ if __name__ == '__main__':
     from pprint import pprint
     addresses = start_sweep()
     pprint(addresses, sort_dicts=False)
+    input('Press ENTER to exit.')
