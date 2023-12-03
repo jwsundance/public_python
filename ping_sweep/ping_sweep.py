@@ -11,7 +11,10 @@ import ipaddress
 import platform
 import subprocess
 import concurrent.futures
+from pprint import pprint       #imported pprint here 20231202 JW
 
+# Downloaded Modules
+from tqdm import tqdm           # python -m pip install tqdm 20231202 JW
 
 def ping(host: str, count: int = 4) -> bool:
     """Pings a host a returns if the ping was successful.
@@ -44,7 +47,8 @@ def ping(host: str, count: int = 4) -> bool:
 
 
 def ping_and_update(addresses: dict, host: str) -> None:
-    """Pings the host, resolves the hostname, then updates the address record
+    """
+    Pings the host, resolves the hostname, then updates the address record
     in the provided `addresses` dictionary.
 
     Args:
@@ -59,16 +63,15 @@ def ping_and_update(addresses: dict, host: str) -> None:
 
     # Try DNS lookup to host address
     try:
-        hostname = socket.gethostbyaddr(host)[0]
+        hostname = socket.getfqdn(host)#[0] #changed gethostbyaddr to getfqdn and have an output no matter what 20231202 JW
     except Exception as e:
         hostname = None
-
-    # Update results
+    #Update results
     addresses[host].update({
-        "PING_REPLY": ping_result,
-        "DNS_NAME": hostname
-        })
-
+    "PING_REPLY": ping_result,
+    "DNS_NAME": hostname ,
+    })
+        
 
 def multithread_ping_ip(addresses: dict) -> None:
     """Loops through all the addresses in the provided dictionary, then starts
@@ -89,52 +92,21 @@ def multithread_ping_ip(addresses: dict) -> None:
     threads = []
     for address in addresses:
         threads.append(thread_pool.submit(ping_and_update, addresses, address))
-    # Check how many threads have completed, and update the progress bar.
-    while True:
-        time.sleep(1)
-        completed_count = 0
-        for thread in threads:
-            if thread._state == 'FINISHED':
-                completed_count = completed_count + 1
-        printProgressBar(completed_count, address_count, prefix="Pinging: ", suffix="Complete", length=50)
-        if completed_count == address_count:
-            break
+        thread_active = concurrent.futures.as_completed(fs=threads, timeout=None) #get count of threads and completed threading 
+    for t in tqdm(thread_active, total=len(threads), mininterval=2): #implemented tqdm progress bare based off the completion of the active threads and total thread job count 20231202
+        pass
     thread_pool.shutdown()
 
-    print(f"{' '*120}", end="\r")
-    print("Done attempting to ping IP addresses.")
-    print("-"*78)
-        
-
-def printProgressBar(iteration: int, total: int , prefix: str = '',
-                    suffix: str = '', decimals: int = 1, length: int = 100,
-                    fill: str = '█', printEnd: str = "\r") -> None:
-    """Prints a progress bar.
-
-    Args:
-        iteration (int): Current interation.
-        total (int): Total possible iterations.
-        prefix (str, optional): A string that is placed in front of the bar. Defaults to ''.
-        suffix (str, optional): A string that is placed in front of the bar. Defaults to ''.
-        decimals (int, optional): How precise the precentage shows. Defaults to 1.
-        length (int, optional): How many characters long is the bar. Defaults to 100.
-        fill (str, optional): What character is used to fill the bar. Defaults to '█'.
-        printEnd (str, optional): What should be printed at each update. Defaults to "\r".
-
-    Returns:
-        None
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-    # Print New Line on Complete
-    if iteration == total: 
-        print(f"{' '*120}", end="\r")
+    #added some printing decorations to make visually appealing ;) 20231202 JW
+    print("#"*89)
+    print(f"{'_'*25}", "Done attempting to ping IP addresses", f"{'_'*25}")
+    print("#"*89)
 
 
 def start_sweep() -> dict:
-    """Pings all possible HOST addresses in a prefix.
+    
+    """
+    Pings all possible HOST addresses in a prefix.
 
     Returns:
         dict: A dictionary containing all IPs as a top-level key.  Each key
@@ -146,13 +118,34 @@ def start_sweep() -> dict:
     addresses = {}
     for i, address in enumerate(prefix):
         if (i < sub_len and i > 0) or sub_len < 2:
-            addresses.update({str(address): {"IPv4Address": address}})
+            addresses.update({str(address): {'IPv4Address': address.compressed}}) #added compressed version of the returned address to clean up dictionary value 20231202 JW 
     multithread_ping_ip(addresses=addresses)
     return addresses
 
+def print_dict(addresses: dict, **kwargs) -> None:
+    '''
+    split out pprint to function to allow for passing of **kwargs
+    added **kwargs to fix issue not seeing values in values dictionary
+    
+    
+    pprint added width=300 to print on one line 
+    pprint added sort_dicts=True to put PING_REPLY at the end of the values dictionary
+        
 
+    Kwargs    
+        addresses (dict): Each top-level key name must be the IP address
+        IPv4Address (str): value is from address.compressed
+        PING_REPLY (str): value is from pythonping -> will be changed to another utility
+        DNS_NAME (str): value is from socket.getfqdn
+        
+    Returns:
+        None #print function only
+    
+    20231202 JW
+    '''
+    pprint(addresses, width= 300, sort_dicts=True, **kwargs)
+    
+    
 if __name__ == '__main__':
-    from pprint import pprint
     addresses = start_sweep()
-    pprint(addresses, sort_dicts=False)
-    input('Press ENTER to exit.')
+    print_dict(addresses)
